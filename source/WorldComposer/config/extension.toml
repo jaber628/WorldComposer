@@ -1,0 +1,23 @@
+[package]
+version = "0.1.0"
+category = "isaaclab"
+readme  = "README.md"
+
+title = "WorldComposer"
+author = "WorldComposer Authors"
+maintainer = "WorldComposer Authors"
+description = "Simulation environments and a Real2Sim pipeline for robot manipulation tasks."
+repository = "<WORLD_COMPOSER_REPO_URL>"
+keywords = ["isaaclab", "robotics", "manipulation", "real2sim"]
+
+[dependencies]
+"isaaclab" = {}
+"isaaclab_assets" = {}
+"isaaclab_mimic" = {}
+"isaaclab_rl" = {}
+"isaaclab_tasks" = {}
+
+[[python.module]]
+name = "WorldComposer"
+
+[isaac_lab_settings]

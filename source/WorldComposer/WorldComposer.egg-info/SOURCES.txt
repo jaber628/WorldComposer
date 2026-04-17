@@ -1,0 +1,10 @@
+pyproject.toml
+setup.py
+WorldComposer/__init__.py
+WorldComposer/ui_extension_example.py
+WorldComposer.egg-info/PKG-INFO
+WorldComposer.egg-info/SOURCES.txt
+WorldComposer.egg-info/dependency_links.txt
+WorldComposer.egg-info/not-zip-safe
+WorldComposer.egg-info/requires.txt
+WorldComposer.egg-info/top_level.txt

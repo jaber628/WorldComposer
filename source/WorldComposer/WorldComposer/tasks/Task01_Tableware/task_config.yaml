@@ -1,0 +1,40 @@
+teleop:
+  device: "so101leader"
+  port: "/dev/ttyACM0"
+  num_envs: 1
+  device_target: "cuda"
+  record: true
+  enable_cameras: true
+  disable_depth: true
+  num_episode: 20
+
+env:
+  episode_length_s: 60
+  action_scale: 1.0
+
+scene:
+  path_scene: "Assets/scenes/Marble/Scene_04_WarmStudio.usd"
+
+randomization:
+  lighting:
+    enable: true
+    tone_range: [5.8, 8.8]
+  texture:
+    enable: true
+    folder: "Assets/textures/seen"
+    min_id: 0
+    max_id: 100
+    prim_path: "/World/Scene/scene/Table038/looks/M_Table038a/UsdPreviewSurface/________7/________7"
+  position:
+    enable: true
+    global_xy_range: [-0.2, 0.2]
+    relative_xy_range: [-0.03, 0.03]
+  scale:
+    enable: true
+    object_A_range: [1.0, 1.2]
+    object_B_range: [1.0, 1.4]
+  object_instance:
+    enable: true
+    max_object_variants: 5
+    object_A_folder: "Assets/objects/cups"
+    object_B_folder: "Assets/objects/plates"
