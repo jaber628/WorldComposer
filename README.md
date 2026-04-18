@@ -49,8 +49,7 @@ pip install "lerobot[all]==0.4.1"
 pip install --upgrade pip
 pip install 'isaacsim[all,extscache]' --extra-index-url https://pypi.nvidia.com
 
-cd /home/lightwheel/Projects
-git clone <WORLD_COMPOSER_REPO_URL>
+git clone https://github.com/jaber628/WorldComposer.git
 cd WorldComposer
 python -m pip install -e source/WorldComposer
 ```
@@ -88,14 +87,10 @@ WorldComposer Real2Sim is a complete automated pipeline for point-cloud and mesh
 ### ◆ **Installation**
 
 ```bash
-cd /home/lightwheel/Projects/WorldComposer
-mkdir -p 3rd/cache/huggingface 3rd/cache/torch 3rd/cache/xdg
-
-cd 3rd
 git clone --recursive https://github.com/nv-tlabs/3dgrut.git
 git clone https://github.com/luca-medeiros/lang-segment-anything.git
 
-cd /home/lightwheel/Projects/WorldComposer/3rd/3dgrut
+cd 3dgrut
 CUDA_VERSION=12 ./scripts/create_conda.sh WorldComposerR2S
 conda activate WorldComposerR2S
 CUDA_VERSION=12.8.1 ./install_env.sh WorldComposerR2S WITH_GCC11
@@ -104,9 +99,8 @@ pip install torch==2.7.0 torchvision==0.22.0 --index-url https://download.pytorc
 pip install --upgrade pip
 pip install 'isaacsim[all,extscache]' --extra-index-url https://pypi.nvidia.com
 pip install open3d trimesh opencv-python segment-anything
-pip install -e /home/lightwheel/Projects/WorldComposer/3rd/lang-segment-anything
+pip install -e lang-segment-anything
 
-cd /home/lightwheel/Projects/WorldComposer
 python -m pip install -e source/WorldComposer
 ```
 
