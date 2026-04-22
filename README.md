@@ -118,3 +118,19 @@ bash Real2Sim.sh
 ### ◆ **Current Public Scope**
 
 The current release covers PLY-to-USDZ conversion, GLB-to-USD mesh conversion, and composed simulation scene generation.
+
+### ◆ **Citation**
+
+If you find this project useful in your research, please consider citing:
+
+```bibtex
+@misc{lu2026seeingsimulatinggenerativehighfidelity,
+  title={From Seeing to Simulating: Generative High-Fidelity Simulation with Digital Cousins for Generalizable Robot Learning and Evaluation}, 
+  author={Jasper Lu and Zhenhao Shen and Yuanfei Wang and Shugao Liu and Shengqiang Xu and Shawn Xie and Jingkai Xu and Feng Jiang and Jade Yang and Chen Xie and Ruihai Wu},
+  year={2026},
+  eprint={2604.15805},
+  archivePrefix={arXiv},
+  primaryClass={cs.RO},
+  url={https://arxiv.org/abs/2604.15805}, 
+}
+```
