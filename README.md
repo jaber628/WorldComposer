@@ -30,11 +30,11 @@
 
 
 
-- **Simulation Environment** — released.
-- **Real2Sim Pipeline** — released.
-- **AutoCollection Pipeline** — release in progress.
-- **Training and Evaluation Environment** — release in progress.
-- **Multiroom Stitching** — release in progress.
+- **Simulation Environment** — Todo.
+- **Real2Sim Pipeline** — Todo.
+- **AutoCollection Pipeline** — Todo.
+- **Training and Evaluation Environment** — Todo.
+- **Multiroom Stitching** — Todo.
 
 ## ✦ **Simulation Environment**
 
