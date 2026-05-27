@@ -13,7 +13,7 @@ env:
   action_scale: 1.0
 
 scene:
-  path_scene: "Assets/scenes/Marble/Scene_04_WarmStudio.usd"
+  path_scene: "Assets/scenes/InternetScenes/Scene_04_WarmStudio.usd"
 
 randomization:
   lighting:

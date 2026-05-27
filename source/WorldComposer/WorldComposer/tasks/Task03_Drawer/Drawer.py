@@ -306,6 +306,10 @@ class DrawerEnv(DirectRLEnv):
         set_tone_mapping_fstop(fstop=fstop, enabled=True)
 
     def _randomize_table038_texture(self, cfg: dict):
+        
+        if getattr(self, "_table_texture_randomization_disabled", False):
+            return
+
         folder = cfg.get("folder", "")
         if not os.path.isabs(folder):
             folder = os.path.join(os.getcwd(), folder)

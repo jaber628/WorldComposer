@@ -305,6 +305,9 @@ class TablewareEnv(DirectRLEnv):
 
     def _randomize_table038_texture(self, cfg: dict):
         """Randomize Table038 texture based on config."""
+        if getattr(self, "_table_texture_randomization_disabled", False):
+            return
+            
         folder = cfg.get("folder", "")
         if not os.path.isabs(folder):
             folder = os.path.join(os.getcwd(), folder)
