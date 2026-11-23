@@ -1,0 +1,37 @@
+teleop:
+  device: "so101leader"
+  port: "/dev/ttyACM0"
+  num_envs: 1
+  device_target: "cuda:0"
+  record: true
+  enable_cameras: true
+  disable_depth: true
+  num_episode: 20
+
+env:
+  episode_length_s: 60
+  action_scale: 1.0
+
+scene:
+  path_scene: "Assets/scenes/InternetScenes/Scene_04_WarmStudio.usd"
+
+randomization:
+  lighting:
+    enable: true
+    tone_range: [5.8, 8.8]
+  texture:
+    enable: true
+    folder: "Assets/textures/seen"
+    min_id: 0
+    max_id: 100
+    prim_path: "/World/Scene/scene/Table038/looks/M_Table038a/UsdPreviewSurface/________7/________7"
+    board_prim_path: "/World/Burger/burger_board/Looks/material_Burger_ChoppingBlock_material/Shader"
+  position:
+    enable: true
+    global_xy_range: [-0.1, 0.1]
+    relative_xy_range: [-0.02, 0.02]
+
+success:
+  radius: 0.045
+  height_range: [0.015, 0.04]
+  max_speed: 0.05

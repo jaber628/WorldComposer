@@ -180,17 +180,28 @@ def success_checker_fling(
     return bool(success)
 
 
-@step_interval(interval=30)
-def success_checker_burger(beef_pos, plate_pos):
-    diff_xy = beef_pos[:, :2] - plate_pos[:, :2]
-    dist_xy = torch.linalg.norm(diff_xy, dim=-1)
+def success_checker_burger(
+    beef_object,
+    bread_object,
+    radius: float = 0.045,
+    height_range: tuple[float, float] = (0.015, 0.04),
+    max_speed: float = 0.05,
+    env_id: int = 0,
+):
+    """Check whether the patty rests above the bread."""
+    from isaaclab.utils.math import quat_apply_inverse
 
-    diff_z = torch.abs(beef_pos[:, 2] - plate_pos[:, 2])
-
-    success_mask = (dist_xy < 0.045) & (diff_z < 0.03)
-    success = success_mask.any().item()
-
-    return bool(success)
+    relative = quat_apply_inverse(
+        bread_object.data.root_quat_w[env_id:env_id + 1],
+        beef_object.data.root_pos_w[env_id:env_id + 1] - bread_object.data.root_pos_w[env_id:env_id + 1],
+    )[0]
+    z_min, z_max = height_range
+    speed = beef_object.data.nodal_vel_w[env_id].norm(dim=-1).mean()
+    return bool(
+        (relative[:2].norm() <= radius)
+        & (relative[2] >= z_min) & (relative[2] <= z_max)
+        & (speed <= max_speed)
+    )
 
 
 @step_interval(interval=30)
