@@ -1,0 +1,51 @@
+teleop:
+  device: "so101leader"
+  port: "/dev/ttyACM0"
+  num_envs: 1
+  device_target: "cpu"
+  record: true
+  enable_cameras: true
+  disable_depth: true
+  num_episode: 20
+
+env:
+  episode_length_s: 60
+  action_scale: 1.0
+
+scene:
+  path_scene: "Assets/scenes/InternetScenes/Scene_04_WarmStudio.usd"
+
+randomization:
+  lighting:
+    enable: true
+    tone_range: [5.8, 8.8]
+  texture:
+    enable: true
+    folder: "Assets/textures/seen"
+    min_id: 0
+    max_id: 100
+    prim_path: "/World/Scene/scene/Table038/looks/M_Table038a/UsdPreviewSurface/________7/________7"
+    board_prim_path: "/World/CutSausage/board/Looks/material_Burger_ChoppingBlock_material/Shader"
+  position:
+    enable: true
+    global_xy_range: [-0.1, 0.1]
+    relative_xy_range: [-0.02, 0.02]
+    sausage_xy_range: [-0.01, 0.01]
+  rotation:
+    enable: true
+    yaw_range: [-15.0, 15.0]
+  scale:
+    enable: true
+    sausage_range: [0.9, 1.1]
+  object_instance:
+    enable: true
+    sausages:
+      - path: "Assets/objects/sausage/Sausage001/Sausage001.usd"
+        mesh_path: "Sausage001"
+        rotation: [0.02595, -0.80309, 0.59426, -0.003506]
+      - path: "Assets/objects/sausage/Sausage002/Sausage002.usd"
+        mesh_path: "material"
+        rotation: [1.0, 0.0, 0.0, 0.0]
+
+success:
+  min_pieces: 2

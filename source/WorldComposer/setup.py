@@ -16,6 +16,10 @@ EXTENSION_TOML_DATA = toml.load(
 INSTALL_REQUIRES = [
     # NOTE: Add dependencies
     "psutil",
+    "trimesh",
+    "shapely",
+    "rtree",
+    "triangle",
 ]
 
 # Installation operation

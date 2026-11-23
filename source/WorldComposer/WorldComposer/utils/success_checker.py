@@ -227,6 +227,5 @@ def success_checker_rubbish(food_rubbish01_pos, food_rubbish02_pos, food_rubbish
     
     return bool(success)
 
-@step_interval(interval=6)
-def success_checker_cut(sausage_count: int) -> bool:
-    return sausage_count >= 2
+def success_checker_cut(sausage_count: int, min_pieces: int = 2) -> bool:
+    return sausage_count >= min_pieces
