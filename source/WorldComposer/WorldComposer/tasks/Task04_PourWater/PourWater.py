@@ -12,12 +12,12 @@ import isaaclab.sim as sim_utils
 from isaaclab.assets import Articulation, RigidObject
 from isaaclab.envs import DirectRLEnv
 from isaaclab.sensors import TiledCamera
-from isaaclab.utils.math import quat_apply_inverse
 
 from .PourWater_cfg import PourWaterEnvCfg
 from WorldComposer.devices.action_process import preprocess_device_action
 from WorldComposer.utils.constant import ASSETS_ROOT
 from WorldComposer.utils.fluid import FluidSystem
+from WorldComposer.utils.success_checker import success_checker_pour
 from WorldComposer.utils.rendering import apply_default_render_settings, set_tone_mapping_fstop
 
 
@@ -84,6 +84,80 @@ class PourWaterEnv(DirectRLEnv):
         self.sim.get_physics_context().enable_ccd(False)
         self.sim.get_physics_context().enable_gpu_dynamics(True)
         self.sim.get_physics_context().set_broadphase_type("GPU")
+
+    def _pre_physics_step(self, actions: torch.Tensor) -> None:
+        self.actions = self.action_scale * actions.clone()
+
+    def _apply_action(self) -> None:
+        self.robot.set_joint_position_target(self.actions)
+
+    def _get_observations(self) -> dict:
+        self.fluid.get_particle_positions_world()
+        observations = {
+            "action": self.actions[0].detach().cpu().numpy(),
+            "observation.state": self.robot.data.joint_pos[0].detach().cpu().numpy(),
+        }
+        if self.enable_cameras:
+            for name in ("behind", "front"):
+                camera = getattr(self, f"{name}_camera")
+                observations[f"observation.images.{name}_rgb"] = camera.data.output["rgb"][0].cpu().numpy()
+        return observations
+
+    def _get_rewards(self) -> torch.Tensor:
+        return torch.zeros_like(self.episode_length_buf, dtype=torch.float)
+
+    def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
+        time_out = self.episode_length_buf >= self.max_episode_length - 1
+        return time_out, time_out
+
+    def _get_success(self) -> torch.Tensor:
+        success_cfg = getattr(self, "_bowl_success", self.task_config["success"])
+        success = success_checker_pour(self.fluid, self.bowl, **success_cfg)
+        return torch.full_like(self.episode_length_buf, success, dtype=torch.bool)
+
+    def _reset_idx(self, env_ids: Sequence[int] | None):
+        if env_ids is None:
+            env_ids = self.robot._ALL_INDICES
+        super()._reset_idx(env_ids)
+        rand_cfg = self.task_config.get("randomization", {})
+        replay_mode = getattr(self, "replay_mode", False)
+        instance_cfg = rand_cfg.get("object_instance", {})
+        pos_cfg = rand_cfg.get("position", {})
+        global_xy = torch.zeros(len(env_ids), 2, device=self.device)
+        randomize_position = not replay_mode and pos_cfg.get("enable", False)
+        if randomize_position:
+            global_xy.uniform_(*pos_cfg.get("global_xy_range", [-0.1, 0.1]))
+        robot_state = self.robot.data.default_root_state[env_ids].clone()
+        robot_state[:, :2] += global_xy
+        self.robot.write_root_state_to_sim(robot_state, env_ids=env_ids)
+        for name in ("cup", "bowl"):
+            index = getattr(self, f"active_{name}_idx")
+            if not replay_mode and instance_cfg.get("enable", False):
+                index = random.randrange(len(getattr(self, f"{name}_pool")))
+            self._select_object(name, index, env_ids)
+            obj = getattr(self, name)
+            variant = getattr(self, f"{name}_variants")[index]
+            state = obj.data.default_root_state[env_ids].clone()
+            state[:, :3] = torch.tensor(getattr(self.cfg, name).init_state.pos, device=self.device)
+            state[:, 2] = variant.get("pos_z", getattr(self.cfg, name).init_state.pos[2])
+            state[:, 7:] = 0.0
+            state[:, :2] += global_xy
+            if randomize_position:
+                state[:, :2] += torch.empty_like(global_xy).uniform_(*pos_cfg.get("relative_xy_range", [-0.02, 0.02]))
+            obj.write_root_state_to_sim(state, env_ids=env_ids)
+        joint_pos = self.robot.data.default_joint_pos[env_ids].clone()
+        self.robot.write_joint_state_to_sim(joint_pos, torch.zeros_like(joint_pos), env_ids=env_ids)
+        self.robot.set_joint_position_target(joint_pos, env_ids=env_ids)
+        self.actions = self.robot.data.default_joint_pos.clone()
+        cup_state = self.cup.data.root_state_w[0]
+        self._reset_fluid(cup_state[:3].cpu().tolist(), cup_state[3:7].cpu().tolist())
+        tex_cfg = rand_cfg.get("texture", {})
+        if not replay_mode and tex_cfg.get("enable", False):
+            self._set_table_texture(random.randint(tex_cfg.get("min_id", 0), tex_cfg.get("max_id", 100)))
+        light_cfg = rand_cfg.get("lighting", {})
+        if not replay_mode and light_cfg.get("enable", False):
+            self._fstop = random.uniform(*light_cfg.get("tone_range", [5.8, 8.8]))
+            set_tone_mapping_fstop(fstop=self._fstop, enabled=True)
 
     def _create_object_pool(self, name, cfg):
         root = Path(ASSETS_ROOT).parent
@@ -156,94 +230,6 @@ class PourWaterEnv(DirectRLEnv):
                 texture = texture_dir / Path(asset.path).name
                 if texture.is_file():
                     texture_input.Set(Sdf.AssetPath(str(texture)))
-
-    def _pre_physics_step(self, actions: torch.Tensor) -> None:
-        self.actions = self.action_scale * actions.clone()
-
-    def _apply_action(self) -> None:
-        self.robot.set_joint_position_target(self.actions)
-
-    def _get_observations(self) -> dict:
-        self.fluid.get_particle_positions_world()
-        observations = {
-            "action": self.actions[0].detach().cpu().numpy(),
-            "observation.state": self.robot.data.joint_pos[0].detach().cpu().numpy(),
-        }
-        if self.enable_cameras:
-            for name in ("behind", "front"):
-                camera = getattr(self, f"{name}_camera")
-                observations[f"observation.images.{name}_rgb"] = camera.data.output["rgb"][0].cpu().numpy()
-        return observations
-
-    def _get_rewards(self) -> torch.Tensor:
-        return torch.zeros_like(self.episode_length_buf, dtype=torch.float)
-
-    def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
-        time_out = self.episode_length_buf >= self.max_episode_length - 1
-        return time_out, time_out
-
-    def _get_success(self) -> torch.Tensor:
-        particles = torch.as_tensor(
-            self.fluid.get_particle_positions_world(), device=self.device, dtype=torch.float32,
-        )
-        success = False
-        if len(particles):
-            local = quat_apply_inverse(
-                self.bowl.data.root_quat_w[0].expand(len(particles), -1),
-                particles - self.bowl.data.root_pos_w[0],
-            )
-            success_cfg = getattr(self, "_bowl_success", self.task_config["success"])
-            z_min, z_max = success_cfg["height_range"]
-            inside = (
-                (local[:, :2].norm(dim=-1) <= success_cfg["radius"])
-                & (local[:, 2] >= z_min) & (local[:, 2] <= z_max)
-            )
-            success = bool(inside.float().mean() >= success_cfg["success_ratio"])
-        return torch.full_like(self.episode_length_buf, success, dtype=torch.bool)
-
-    def _reset_idx(self, env_ids: Sequence[int] | None):
-        if env_ids is None:
-            env_ids = self.robot._ALL_INDICES
-        super()._reset_idx(env_ids)
-        rand_cfg = self.task_config.get("randomization", {})
-        replay_mode = getattr(self, "replay_mode", False)
-        instance_cfg = rand_cfg.get("object_instance", {})
-        pos_cfg = rand_cfg.get("position", {})
-        global_xy = torch.zeros(len(env_ids), 2, device=self.device)
-        randomize_position = not replay_mode and pos_cfg.get("enable", False)
-        if randomize_position:
-            global_xy.uniform_(*pos_cfg.get("global_xy_range", [-0.1, 0.1]))
-        robot_state = self.robot.data.default_root_state[env_ids].clone()
-        robot_state[:, :2] += global_xy
-        self.robot.write_root_state_to_sim(robot_state, env_ids=env_ids)
-        for name in ("cup", "bowl"):
-            index = getattr(self, f"active_{name}_idx")
-            if not replay_mode and instance_cfg.get("enable", False):
-                index = random.randrange(len(getattr(self, f"{name}_pool")))
-            self._select_object(name, index, env_ids)
-            obj = getattr(self, name)
-            variant = getattr(self, f"{name}_variants")[index]
-            state = obj.data.default_root_state[env_ids].clone()
-            state[:, :3] = torch.tensor(getattr(self.cfg, name).init_state.pos, device=self.device)
-            state[:, 2] = variant.get("pos_z", getattr(self.cfg, name).init_state.pos[2])
-            state[:, 7:] = 0.0
-            state[:, :2] += global_xy
-            if randomize_position:
-                state[:, :2] += torch.empty_like(global_xy).uniform_(*pos_cfg.get("relative_xy_range", [-0.02, 0.02]))
-            obj.write_root_state_to_sim(state, env_ids=env_ids)
-        joint_pos = self.robot.data.default_joint_pos[env_ids].clone()
-        self.robot.write_joint_state_to_sim(joint_pos, torch.zeros_like(joint_pos), env_ids=env_ids)
-        self.robot.set_joint_position_target(joint_pos, env_ids=env_ids)
-        self.actions = self.robot.data.default_joint_pos.clone()
-        cup_state = self.cup.data.root_state_w[0]
-        self._reset_fluid(cup_state[:3].cpu().tolist(), cup_state[3:7].cpu().tolist())
-        tex_cfg = rand_cfg.get("texture", {})
-        if not replay_mode and tex_cfg.get("enable", False):
-            self._set_table_texture(random.randint(tex_cfg.get("min_id", 0), tex_cfg.get("max_id", 100)))
-        light_cfg = rand_cfg.get("lighting", {})
-        if not replay_mode and light_cfg.get("enable", False):
-            self._fstop = random.uniform(*light_cfg.get("tone_range", [5.8, 8.8]))
-            set_tone_mapping_fstop(fstop=self._fstop, enabled=True)
 
     def preprocess_device_action(self, action: dict[str, Any], teleop_device) -> torch.Tensor:
         return preprocess_device_action(action, teleop_device)

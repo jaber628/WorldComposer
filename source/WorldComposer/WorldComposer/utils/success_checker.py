@@ -64,35 +64,35 @@ def success_checker_orangeinbowl(
     )
     return bool(success)
 
-# @step_interval(interval=50)
 def success_checker_pour(
     fluid_system,
-    bowl_pos: np.ndarray,
-    sample_count: int = 100,
-    xy_tolerance: float = 0.08,
-    z_tolerance: float = 0.12,
-    success_ratio: float = 0.5,
+    bowl_object,
+    radius: float = 0.055,
+    height_range: tuple[float, float] = (-0.031, 0.035),
+    success_ratio: float = 0.6,
+    env_id: int = 0,
 ):
-    """Check whether enough sampled fluid particles fall near the container."""
-    # Read positions via the FluidSystem helper (does not depend on updateToUsd)
-    particles = fluid_system.get_particle_positions_world()
+    """Check the full particle ratio inside the bowl's local target region."""
+    from isaaclab.utils.math import quat_apply_inverse
+
+    bowl_pos = bowl_object.data.root_pos_w[env_id]
+    particles = torch.as_tensor(
+        fluid_system.get_particle_positions_world(), device=bowl_pos.device, dtype=torch.float32,
+    )
     if len(particles) == 0:
         return False
 
-    sample_count = min(sample_count, len(particles))
-    indices = np.random.choice(len(particles), size=sample_count, replace=False)
-    sampled = particles[indices]
+    local = quat_apply_inverse(
+        bowl_object.data.root_quat_w[env_id].expand(len(particles), -1), particles - bowl_pos,
+    )
+    z_min, z_max = height_range
+    inside = (
+        (local[:, :2].norm(dim=-1) <= radius)
+        & (local[:, 2] >= z_min) & (local[:, 2] <= z_max)
+    )
+    return bool(inside.float().mean() >= success_ratio)
 
-    container_pos = np.array(bowl_pos, dtype=np.float32)
 
-    diff = np.abs(sampled - container_pos)
-    in_xy = (diff[:, 0] <= xy_tolerance) & (diff[:, 1] <= xy_tolerance)
-    in_z = diff[:, 2] <= z_tolerance
-    inside = in_xy & in_z
-
-    ratio = inside.mean() if len(inside) > 0 else 0.0
-    return bool(ratio >= success_ratio)
-    
 @step_interval(interval=50)
 def success_checker_bowlinplate(
     rigid_object_a, rigid_object_b, env_id: int = 0
