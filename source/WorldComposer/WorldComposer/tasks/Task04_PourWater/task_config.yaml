@@ -1,0 +1,45 @@
+teleop:
+  device: keyboard
+  num_envs: 1
+  device_target: cpu
+  record: false
+  enable_cameras: true
+  disable_depth: true
+  num_episode: 20
+
+env:
+  episode_length_s: 60
+  action_scale: 1.0
+
+scene:
+  path_scene: Assets/scenes/InternetScenes/Scene_04_WarmStudio.usd
+
+fluid:
+  material_path: water.mdl
+  cast_shadows: false
+  mass: 0.15
+  offset: [0.0, 0.013, 0.01]
+  physics:
+    particle_contact_offset: 0.0025
+    contact_offset: 0.0025
+    rest_offset: 0.0024
+    fluid_rest_offset: 0.0015
+    solid_rest_offset: 0.0015
+    max_velocity: 0.5
+    particle_mass: 0.00002
+    smoothing: false
+    anisotropy: false
+    isosurface: true
+    fluid_volumn: [1.45, 1.45, 0.95]
+  material:
+    cohesion: 0.01
+    friction: 0.1
+    damping: 0.99
+    gravity_scale: 1.0
+    viscosity: 0.0091
+    surface_tension: 0.0074
+
+success:
+  radius: 0.055
+  height_range: [-0.031, 0.035]
+  success_ratio: 0.6

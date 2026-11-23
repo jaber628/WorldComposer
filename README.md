@@ -89,6 +89,8 @@ python -m pip install -e source/WorldComposer
 
 Public tasks are organized under `source/WorldComposer/WorldComposer/tasks/`.
 
+Supported tasks include Tableware, Microwave, Drawer, and PourWater.
+
 - `Task01_Tableware/`
   - `Tableware.py`: task environment logic, reset behavior, randomization, observations, and success checking.
   - `Tableware_cfg.py`: Isaac Lab environment, robot, object, scene, and camera configuration.

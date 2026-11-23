@@ -1,0 +1,12 @@
+mdl 1.7;
+
+using ::OmniSurface::OmniSurfaceBase import OmniSurfaceBase;
+
+export material water() = OmniSurfaceBase(
+    diffuse_reflection_weight: 0.0,
+    specular_reflection_roughness: 0.02,
+    specular_reflection_ior: 1.333,
+    enable_specular_transmission: true,
+    specular_transmission_weight: 1.0,
+    specular_transmission_color: color(1.0)
+);

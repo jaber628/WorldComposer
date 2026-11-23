@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import omni.kit.commands
+import omni.physx
 from scipy.spatial import Delaunay
 
 from omni.physx.scripts import particleUtils, physicsUtils
@@ -14,16 +15,15 @@ try:
     from isaacsim.replicator.behavior.utils.scene_utils import create_mdl_material as _create_mdl_material
 except Exception:
     _create_mdl_material = None
-    from pxr import UsdShade
 
 def _safe_create_material(material_url: str, material_name: str, material_path: str, stage):
     if _create_mdl_material is not None:
         _create_mdl_material(material_url, material_name, material_path)
         return
-    try:
-        UsdShade.Material.Define(stage, Sdf.Path(material_path))
-    except Exception:
-        pass
+    omni.kit.commands.execute(
+        "CreateMdlMaterialPrim", mtl_url=material_url, mtl_name=material_name,
+        mtl_path=material_path, select_new_prim=False,
+    )
 
 class FluidSystem:
     """
@@ -123,7 +123,7 @@ class FluidSystem:
             self_collision=True,
             fluid=True,
             particle_group=0,
-            particle_mass=0.001,
+            particle_mass=self.physics_cfg.get("particle_mass", 0.001),
             density=0.0,
         )
 
@@ -238,12 +238,17 @@ class FluidSystem:
         )
 
     def get_particle_positions_world(self) -> np.ndarray:
-        """Read current particle world positions from USD (only valid when updateParticlesToUsd=True,
-        otherwise use get_particle_positions_from_physx)."""
-        pos_attr = self.point_instancer.GetPositionsAttr().Get()
-        if not pos_attr:
+        """Synchronize particle positions and transform them from local to world space."""
+        omni.physx.get_physx_interface().update_transformations(False, True, True, False)
+        positions = np.asarray(self.point_instancer.GetPositionsAttr().Get(), dtype=np.float32)
+        if not len(positions):
             return np.zeros((0, 3), dtype=np.float32)
-        return np.array([[p[0], p[1], p[2]] for p in pos_attr], dtype=np.float32)
+        transform = np.asarray(
+            UsdGeom.Xformable(self.point_instancer).ComputeLocalToWorldTransform(0),
+            dtype=np.float32,
+        )
+        return positions @ transform[:3, :3] + transform[3, :3]
+
 
 def generate_particles_in_convex_mesh(vertices: np.ndarray, sphere_diameter: float, visualize: bool = False):
     min_bound = np.min(vertices, axis=0)
