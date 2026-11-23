@@ -14,6 +14,38 @@ env:
 scene:
   path_scene: Assets/scenes/InternetScenes/Scene_04_WarmStudio.usd
 
+randomization:
+  lighting:
+    enable: true
+    tone_range: [5.8, 8.8]
+  texture:
+    enable: true
+    folder: Assets/textures/seen
+    min_id: 0
+    max_id: 100
+    prim_path: /World/Scene/scene/Table038/looks/M_Table038a/UsdPreviewSurface/________7/________7
+  position:
+    enable: true
+    global_xy_range: [-0.1, 0.1]
+    relative_xy_range: [-0.02, 0.02]
+  object_instance:
+    enable: true
+    cup_variants:
+      - usd_path: Assets/objects/mugs/mug/mug.usd
+      - usd_path: Assets/objects/mugs/CoffeeCup028/CoffeeCup028.usd
+        pos_z: 0.58358
+        fluid_offset: [0.0, 0.0, -0.00858]
+      - usd_path: Assets/objects/mugs/CoffeeCup029/CoffeeCup029.usd
+        pos_z: 0.576604
+        fluid_offset: [0.0, 0.0, -0.001604]
+    bowl_variants:
+      - usd_path: Assets/objects/bowls/Bowl016/Bowl016.usd
+      - usd_path: Assets/objects/bowls/bowl2/bowl.usd
+        pos_z: 0.555738
+        success:
+          radius: 0.07
+          height_range: [-0.025, 0.027]
+
 fluid:
   material_path: water.mdl
   cast_shadows: false
