@@ -129,7 +129,8 @@ def suppress_video_encoder_output():
 def validate_task_and_device(args: argparse.Namespace) -> None:
     if args.task is None:
         raise ValueError("Please specify --task.")
-    if "Bi" in args.task:
+    env_cfg = parse_env_cfg(args.task, device=args.device)
+    if "Bi" in args.task or hasattr(env_cfg, "left_robot"):
         assert args.teleop_device in ["bi-so101leader", "bi-keyboard"], "Only support bi-arm devices for bi-arm tasks"
     else:
         assert args.teleop_device in ["so101leader", "keyboard"], "Only support single-arm devices for single-arm tasks"
@@ -207,10 +208,11 @@ def warmup_and_reset(env: DirectRLEnv, device: str, is_initial: bool = False):
     
     # Force the robot into its default joint position to prevent drift
     env_ids = torch.tensor([0], dtype=torch.int32, device=device)
-    initial_joint_pos = env.robot.data.default_joint_pos[env_ids]
-    
-    env.robot.write_joint_position_to_sim(initial_joint_pos[0], env_ids=env_ids)
-    env.robot.set_joint_position_target(initial_joint_pos)
+    arms = (env.left_arm, env.right_arm) if hasattr(env, "left_arm") else (env.robot,)
+    for arm in arms:
+        initial_joint_pos = arm.data.default_joint_pos[env_ids]
+        arm.write_joint_position_to_sim(initial_joint_pos, env_ids=env_ids)
+        arm.set_joint_position_target(initial_joint_pos)
     
     if hasattr(env, "scene") and hasattr(env.scene, "write_data_to_sim"):
         env.scene.write_data_to_sim()
@@ -220,7 +222,8 @@ def warmup_and_reset(env: DirectRLEnv, device: str, is_initial: bool = False):
     for _ in range(settle_steps):
         env.sim.step(render=False)
         # Keep enforcing target so arms don't drop during settling
-        env.robot.set_joint_position_target(initial_joint_pos)
+        for arm in arms:
+            arm.set_joint_position_target(arm.data.default_joint_pos[env_ids])
         simulation_app.update()
         
     # Obtain true initial pose of objects after settling
@@ -493,8 +496,6 @@ def main():
         logger.addHandler(handler)
     logger.propagate = False
 
-    validate_task_and_device(args_cli)
-    
     # Load YAML config if provided
     yaml_config = {}
     if args_cli.config and os.path.exists(args_cli.config):
@@ -506,6 +507,8 @@ def main():
         teleop_cfg = yaml_config.get("teleop", {})
         if "device" in teleop_cfg: args_cli.teleop_device = teleop_cfg["device"]
         if "port" in teleop_cfg: args_cli.port = teleop_cfg["port"]
+        if "left_arm_port" in teleop_cfg: args_cli.left_arm_port = teleop_cfg["left_arm_port"]
+        if "right_arm_port" in teleop_cfg: args_cli.right_arm_port = teleop_cfg["right_arm_port"]
         if "num_envs" in teleop_cfg: args_cli.num_envs = teleop_cfg["num_envs"]
         if "device_target" in teleop_cfg: args_cli.device = teleop_cfg["device_target"]
         if "record" in teleop_cfg: args_cli.record = teleop_cfg["record"]
@@ -518,6 +521,7 @@ def main():
     # So we need to update the simulation_app config directly, or ensure args_cli.enable_cameras
     # is passed to AppLauncher.
     
+    validate_task_and_device(args_cli)
     env, teleop_interface, flags, rate_limiter = build_runtime(args_cli, yaml_config)
     
     # 1. Warm up physics & obtain precise initial pose

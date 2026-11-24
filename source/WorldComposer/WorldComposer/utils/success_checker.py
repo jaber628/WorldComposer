@@ -113,16 +113,19 @@ def success_checker_bowlinplate(
     return bool(success)
 
 
-@step_interval(interval=50)
 def success_checker_fold(
-    particle_object, index_list=[8077, 1711, 2578, 3942, 8738, 588]
+    particle_object, index_list=None, distance_thresholds=(0.10, 0.16, 0.10), max_speed=None,
 ):
-    p = get_object_particle_position(particle_object, index_list)
-    success = (
-        calculate_distance(p[0], p[4]) <= 10
-        and calculate_distance(p[2], p[3]) <= 16
-        and calculate_distance(p[1], p[5]) <= 10
+    if index_list is None:
+        index_list = [8077, 1711, 2578, 3942, 8738, 588]
+    positions = get_object_particle_position(particle_object, index_list)
+    success = all(
+        calculate_distance(positions[a], positions[b]) <= threshold * 100
+        for (a, b), threshold in zip(((0, 4), (2, 3), (1, 5)), distance_thresholds)
     )
+    if max_speed is not None:
+        speed = particle_object._cloth_prim_view.get_velocities().norm(dim=-1).mean()
+        success = success and bool(speed <= max_speed)
     return bool(success)
 
 
