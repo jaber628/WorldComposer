@@ -185,8 +185,8 @@ bash Real2Sim.sh
 If you find this project useful in your research, please consider citing:
 
 ```bibtex
-@misc{lu2026seeingsimulatinggenerativehighfidelity,
-  title={From Seeing to Simulating: Generative High-Fidelity Simulation with Digital Cousins for Generalizable Robot Learning and Evaluation}, 
+@misc{lu2026worldcomposergenerativehighfidelitysimulation,
+  title={WorldComposer: Generative High-Fidelity Simulation with Digital Cousins for Generalizable Robot Learning and Evaluation},
   author={Jasper Lu and Zhenhao Shen and Yuanfei Wang and Shugao Liu and Shengqiang Xu and Shawn Xie and Jingkai Xu and Feng Jiang and Jade Yang and Chen Xie and Ruihai Wu},
   year={2026},
   eprint={2604.15805},
