@@ -293,6 +293,8 @@ def apply_task_yaml_to_env_cfg(env_cfg, yaml_config: dict) -> None:
 def build_runtime(args: argparse.Namespace, yaml_config: dict):
     """Create env + teleop runtime using the current YAML configuration."""
     env_cfg = parse_env_cfg(args.task, device=args.device)
+    env_cfg.seed = args.seed
+    random.seed(args.seed)
     apply_task_yaml_to_env_cfg(env_cfg, yaml_config)
     env: DirectRLEnv = gym.make(args.task, cfg=env_cfg).unwrapped
     teleop_interface = create_teleop_interface(env, args)

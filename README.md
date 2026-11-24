@@ -1,10 +1,10 @@
 <div align="center">
   <h1>WorldComposer</h1>
-  <h3><em>From Seeing to Simulating: Generative High-Fidelity Simulation with Digital Cousins for Generalizable Robot Learning and Evaluation</em></h3>
+  <h3><em>Generative High-Fidelity Simulation with Digital Cousins for Generalizable Robot Learning and Evaluation</em></h3>
 </div>
 
 <div align="center">
-    <a href="https://stubborn111.github.io/WorldComposer/Assets/WorldComposer.pdf" target="_blank">
+    <a href="https://arxiv.org/abs/2604.15805v2" target="_blank">
     <img src="https://img.shields.io/badge/Paper-PDF-2ea043?style=for-the-badge&logo=adobeacrobatreader&logoColor=white" alt="Paper PDF"></a>
     <a href="https://stubborn111.github.io/WorldComposer/" target="_blank">
     <img src="https://img.shields.io/badge/Page-Project_Page-e5534b?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Project Page"></a>
@@ -27,12 +27,12 @@
 - **2026.04.17 — WorldComposer Simulation Environment and Real2Sim pipeline released❗️**
 - **2026.05.27 — Complete Real2Sim Pipeline released❗️**
 - **2026.05.27 — Partial Simulation Assets released❗️**
+- **2026.11.24 — Complete Simulation Environment released❗️**
 
 ---
 
 ## 🌟 **Update List**
 
-- **Complete Simulation Environment** — Releasing Soon.
 - **AutoCollection Pipeline** — Releasing Soon.
 - **Training and Evaluation Environment** — Releasing Soon.
 - **Multiroom Stitching** — Releasing Soon.
