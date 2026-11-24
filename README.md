@@ -180,6 +180,59 @@ bash Real2Sim.sh
 
 ---
 
+## 🧩 **Multiroom Stitching**
+
+WorldComposer provides panorama-guided scene alignment and keyboard navigation in stitched multiroom environments.
+
+### ◆ **Installation**
+
+The stitching examples extend the WorldComposer simulation environment. Clone it to keep the additional dependencies isolated:
+
+```bash
+conda create -n WorldComposerNav --clone WorldComposer
+conda activate WorldComposerNav
+
+export CUDA_HOME=/usr/local/cuda
+export PATH="$CUDA_HOME/bin:$PATH"
+python -m pip install -r requirements/stitching.txt
+python -m pip install -e source/WorldComposer
+```
+
+The provided navigation scene uses Isaac Sim 5.1 with NuRec rendering. gsplat builds its CUDA extension on the first run.
+
+### ◆ **Input Data**
+
+The companion assets include panorama pairs, Gaussian scenes, and a stitched navigation example under `Assets/scenes/MultiroomScenes/MultiRoom01/`.
+
+### ◆ **Workflow**
+
+1. Estimate the relative pose using panorama feature matching and ground-based scale recovery.
+2. Refine the alignment with Colored ICP and export `pair_transform.json`.
+3. Apply the estimated pose in SuperSplat to align and edit adjacent scenes.
+4. Load the stitched scene in Isaac Sim for keyboard navigation and RGB-D visualization.
+
+### ◆ **Run**
+
+Run the pairwise alignment example:
+
+```bash
+bash Stitching.sh
+```
+
+Add `--visualize` to inspect the alignment, or `--save-debug-images` to save panorama matches. Results are written under the scene's `stitching_intermediate/` directory.
+
+Launch navigation in the provided scene:
+
+```bash
+python scripts/stitching/nav_teleop.py \
+  --scene-dir Assets/scenes/MultiroomScenes/MultiRoom01 \
+  --visualize-obs
+```
+
+Use `W` to move forward, `A`/`D` to turn, `S` to stop, and `Q`/`Esc` to exit.
+
+---
+
 ## ✦  **Citation**
 
 If you find this project useful in your research, please consider citing:
