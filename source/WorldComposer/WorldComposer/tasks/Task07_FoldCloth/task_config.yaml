@@ -39,14 +39,14 @@ randomization:
     garment_index: null
     garments:
     - name: Top_Long_Seen_1
-      path: Assets/objects/Challenge_Garment/Release/Tops_Long/Top_Long_Seen_1/TCLC_015_obj_exp.usd
+      path: Assets/objects/Cloth/Tops_Long/Top_Long_Seen_1/TCLC_015_obj_exp.usd
       scale: 0.45
       position: [-0.025, -0.03, 0.63]
       keypoints: [2890, 4253, 5220, 6484, 207, 1564]
       materials:
-      - Assets/objects/Challenge_Garment/Release/Color_Texture/Fabric055_1K_JPG.usd
+      - Assets/objects/Cloth/Color_Texture/Fabric055_1K_JPG.usd
     - name: Top_Long_Seen_3
-      path: Assets/objects/Challenge_Garment/Release/Tops_Long/Top_Long_Seen_3/TCLO_001_obj_exp.usd
+      path: Assets/objects/Cloth/Tops_Long/Top_Long_Seen_3/TCLO_001_obj_exp.usd
       scale: 0.4
       position: [-0.025, -0.03, 0.63]
       keypoints: [8093, 1070, 1991, 3391, 8289, 419]
@@ -56,32 +56,32 @@ randomization:
         particle_material:
           damping: 5.0
       materials:
-      - Assets/objects/Challenge_Garment/Release/Color_Texture/Fabric004_1K_JPG.usd
-      - Assets/objects/Challenge_Garment/Release/Color_Texture/Fabric079_1K_JPG.usd
+      - Assets/objects/Cloth/Color_Texture/Fabric004_1K_JPG.usd
+      - Assets/objects/Cloth/Color_Texture/Fabric079_1K_JPG.usd
     - name: Top_Long_Seen_4
-      path: Assets/objects/Challenge_Garment/Release/Tops_Long/Top_Long_Seen_4/TCLO_073_obj_exp.usd
+      path: Assets/objects/Cloth/Tops_Long/Top_Long_Seen_4/TCLO_073_obj_exp.usd
       scale: 0.45
       position: [-0.025, -0.03, 0.63]
       keypoints: [9215, 9285, 9105, 8906, 5650, 4564]
       materials:
-      - Assets/objects/Challenge_Garment/Release/Color_Texture/Fabric082B_1K_JPG.usd
-      - Assets/objects/Challenge_Garment/Release/Color_Texture/Fabric045_1K_JPG.usd
+      - Assets/objects/Cloth/Color_Texture/Fabric082B_1K_JPG.usd
+      - Assets/objects/Cloth/Color_Texture/Fabric045_1K_JPG.usd
     - name: Top_Long_Seen_7
-      path: Assets/objects/Challenge_Garment/Release/Tops_Long/Top_Long_Seen_7/TNLC_033_obj_exp.usd
+      path: Assets/objects/Cloth/Tops_Long/Top_Long_Seen_7/TNLC_033_obj_exp.usd
       scale: 0.45
       position: [-0.025, -0.03, 0.63]
       keypoints: [4527, 5778, 8460, 6787, 3545, 5072]
       materials:
-      - Assets/objects/Challenge_Garment/Release/Color_Texture/Fabric054_1K_JPG.usd
-      - Assets/objects/Challenge_Garment/Release/Color_Texture/Fabric034_1K_JPG.usd
+      - Assets/objects/Cloth/Color_Texture/Fabric054_1K_JPG.usd
+      - Assets/objects/Cloth/Color_Texture/Fabric034_1K_JPG.usd
     - name: Top_Long_Seen_9
-      path: Assets/objects/Challenge_Garment/Release/Tops_Long/Top_Long_Seen_9/TNLO_034__obj_exp.usd
+      path: Assets/objects/Cloth/Tops_Long/Top_Long_Seen_9/TNLO_034__obj_exp.usd
       scale: 0.45
       position: [-0.025, -0.03, 0.63]
       keypoints: [4506, 5520, 8193, 6323, 3669, 5497]
       materials:
-      - Assets/objects/Challenge_Garment/Release/Color_Texture/Fabric027_1K_JPG.usd
-      - Assets/objects/Challenge_Garment/Release/Color_Texture/Fabric034_1K_JPG.usd
+      - Assets/objects/Cloth/Color_Texture/Fabric027_1K_JPG.usd
+      - Assets/objects/Cloth/Color_Texture/Fabric034_1K_JPG.usd
 cloth:
   common:
     initial_pos_range: [-0.025, -0.03, 0.63, -0.025, -0.03, 0.63]
