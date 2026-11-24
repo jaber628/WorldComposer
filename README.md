@@ -5,9 +5,9 @@
 
 <div align="center">
     <a href="https://arxiv.org/abs/2604.15805v2" target="_blank">
-    <img src="https://img.shields.io/badge/Paper-PDF-2ea043?style=for-the-badge&logo=adobeacrobatreader&logoColor=white" alt="Paper PDF"></a>
+    <img src="Pic/Paper.svg" alt="Paper PDF"></a>
     <a href="https://stubborn111.github.io/WorldComposer/" target="_blank">
-    <img src="https://img.shields.io/badge/Page-Project_Page-e5534b?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Project Page"></a>
+    <img src="Pic/ProjectPage.svg" alt="Project Page"></a>
     <a href="https://github.com/jaber628/WorldComposer" target="_blank">
     <img src="https://img.shields.io/badge/Code-GitHub-1f6feb?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Code"></a>
 </div>

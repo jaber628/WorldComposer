@@ -1,17 +1,20 @@
 from __future__ import annotations
 import torch
-from typing import Sequence
+from typing import Any, Sequence
 import os
+import random
 import numpy as np
 
 import isaaclab.sim as sim_utils
 from isaaclab.assets import Articulation, RigidObject, RigidObjectCfg
 from isaaclab.envs import DirectRLEnv
 from isaaclab.sensors import TiledCamera
+from pxr import Gf, Sdf, UsdGeom, UsdShade
 
 from .Tableware_cfg import TablewareEnvCfg
+from WorldComposer.devices.action_process import preprocess_device_action
 from WorldComposer.utils.success_checker import success_checker_bowlinplate
-from WorldComposer.utils.rendering import apply_default_render_settings, setup_default_lighting
+from WorldComposer.utils.rendering import apply_default_render_settings, setup_default_lighting, set_tone_mapping_fstop
 
 
 class TablewareEnv(DirectRLEnv):
@@ -101,7 +104,10 @@ class TablewareEnv(DirectRLEnv):
         self.robot.set_joint_position_target(self.actions)
 
     def _get_observations(self) -> dict:
-        action = self.actions.squeeze(0)
+        if hasattr(self, "actions"):
+            action = self.actions.squeeze(0)
+        else:
+            action = torch.zeros(self.cfg.action_space, device=self.device)
         joint_pos = torch.cat(
             [self.joint_pos[:, i].unsqueeze(1) for i in range(6)], dim=-1
         )
