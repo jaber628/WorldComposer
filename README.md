@@ -28,14 +28,7 @@
 - **2026.05.27 — Complete Real2Sim Pipeline released❗️**
 - **2026.05.27 — Partial Simulation Assets released❗️**
 - **2026.11.24 — Complete Simulation Environment released❗️**
-
----
-
-## 🌟 **Update List**
-
-- **AutoCollection Pipeline** — Releasing Soon.
-- **Training and Evaluation Environment** — Releasing Soon.
-- **Multiroom Stitching** — Releasing Soon.
+- **2026.11.26 — Multiroom Stitching released❗️**
 
 ---
 
@@ -60,8 +53,11 @@ WorldComposer/
 ├── Assets/
 ├── scripts/
 ├── source/
+├── requirements/
+├── tests/
 ├── README.md
 ├── Real2Sim.sh
+├── Stitching.sh
 └── Teleoperation.sh
 ```
 
@@ -94,7 +90,7 @@ Supported tasks include Tableware, Microwave, Drawer, PourWater, Assemble Burger
 - `Task01_Tableware/`
   - `Tableware.py`: task environment logic, reset behavior, randomization, observations, and success checking.
   - `Tableware_cfg.py`: Isaac Lab environment, robot, object, scene, and camera configuration.
-  - `task_config.yaml`: simulation task, teleoperation, and automatic data-collection settings.
+  - `task_config.yaml`: simulation task and teleoperation settings.
   - `__init__.py`: gym task registration.
 
 Each task follows the same structure: an environment implementation file, a static configuration file, a runtime YAML config, and a registration entry.
@@ -106,10 +102,6 @@ Use `Teleoperation.sh` to launch the released teleoperation entry.
 ```bash
 bash Teleoperation.sh
 ```
-
-### ◆ **AutoCollection**
-
-AutoCollection is the automatic data generation pipeline built on top of the same task interface and will be released progressively.
 
 ---
 
@@ -182,11 +174,11 @@ bash Real2Sim.sh
 
 ## 🧩 **Multiroom Stitching**
 
-WorldComposer provides panorama-guided scene alignment and keyboard navigation in stitched multiroom environments.
+WorldComposer aligns adjacent Gaussian scenes from panoramic images, refines their overlap using original views, and supports keyboard navigation with RGB-D visualization.
 
 ### ◆ **Installation**
 
-The stitching examples extend the WorldComposer simulation environment. Clone it to keep the additional dependencies isolated:
+Clone the simulation environment and install the stitching dependencies:
 
 ```bash
 conda create -n WorldComposerNav --clone WorldComposer
@@ -198,35 +190,49 @@ python -m pip install -r requirements/stitching.txt
 python -m pip install -e source/WorldComposer
 ```
 
-The provided navigation scene uses Isaac Sim 5.1 with NuRec rendering. gsplat builds its CUDA extension on the first run.
+Navigation uses Isaac Sim 5.1 and GSplat. GSplat builds its CUDA extension on the first run.
 
 ### ◆ **Input Data**
 
-The companion assets include panorama pairs, Gaussian scenes, and a stitched navigation example under `Assets/scenes/MultiroomScenes/MultiRoom01/`.
+The companion assets include a sample scene pair and a stitched navigation scene. To stitch your own adjacent scenes, organize their panoramas and Gaussian reconstructions using the same layout:
 
-### ◆ **Workflow**
-
-1. Estimate the relative pose using panorama feature matching and ground-based scale recovery.
-2. Refine the alignment with Colored ICP and export `pair_transform.json`.
-3. Apply the estimated pose in SuperSplat to align and edit adjacent scenes.
-4. Load the stitched scene in Isaac Sim for keyboard navigation and RGB-D visualization.
+```text
+Assets/scenes/MultiroomScenes/MultiRoom01/
+├── input/
+│   ├── pano/
+│   │   ├── scene_01.png
+│   │   └── scene_02.png
+│   └── scenes/
+│       ├── scene_01.ply
+│       └── scene_02.ply
+├── stitched/
+│   ├── merged.ply
+│   ├── pair_transform.json
+│   ├── provenance.npz
+│   ├── refinement_report.json
+│   ├── scene_config.yaml
+│   ├── grid_map.png
+│   └── grid_meta.json
+└── preview/
+```
 
 ### ◆ **Run**
 
-Run the pairwise alignment example:
+Set `SCENE_DIR` to the provided example or your own scene directory, then run alignment, surface fusion, view-guided refinement, and navigation preparation:
 
 ```bash
-bash Stitching.sh
+SCENE_DIR=Assets/scenes/MultiroomScenes/MultiRoom01
+OUTPUT_DIR=outputs/stitching
+
+bash Stitching.sh "$SCENE_DIR" "$OUTPUT_DIR"
+python scripts/stitching/nav_teleop.py --scene-dir "$OUTPUT_DIR/stitched"
 ```
 
-Add `--visualize` to inspect the alignment, or `--save-debug-images` to save panorama matches. Results are written under the scene's `stitching_intermediate/` directory.
-
-Launch navigation in the provided scene:
+To navigate the provided scene directly:
 
 ```bash
 python scripts/stitching/nav_teleop.py \
-  --scene-dir Assets/scenes/MultiroomScenes/MultiRoom01 \
-  --visualize-obs
+  --scene-dir Assets/scenes/MultiroomScenes/MultiRoom01/stitched
 ```
 
 Use `W` to move forward, `A`/`D` to turn, `S` to stop, and `Q`/`Esc` to exit.

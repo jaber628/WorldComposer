@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -26,21 +27,30 @@ MAX_DEPTH_M = 5.0
 
 
 def _depth_to_2d_numpy(depth: np.ndarray | torch.Tensor) -> np.ndarray:
-    arr = np.asarray(depth.cpu().numpy() if isinstance(depth, torch.Tensor) else depth, dtype=np.float64)
+    arr = np.asarray(
+        depth.cpu().numpy() if isinstance(depth, torch.Tensor) else depth,
+        dtype=np.float64,
+    )
     arr = np.squeeze(arr)
     if arr.ndim == 3:
         arr = arr[0]
     return arr
 
 
-def merge_depths_min(sim_depth: np.ndarray | torch.Tensor, render_depth: np.ndarray) -> np.ndarray:
+def merge_depths_min(
+    sim_depth: np.ndarray | torch.Tensor, render_depth: np.ndarray
+) -> np.ndarray:
     sim_depth = _depth_to_2d_numpy(sim_depth)
     render_depth = _depth_to_2d_numpy(render_depth)
     if sim_depth.shape != render_depth.shape:
         from scipy.ndimage import zoom
 
         h, w = sim_depth.shape
-        render_depth = zoom(render_depth, (h / render_depth.shape[0], w / render_depth.shape[1]), order=1)
+        render_depth = zoom(
+            render_depth,
+            (h / render_depth.shape[0], w / render_depth.shape[1]),
+            order=1,
+        )
     sim_valid = np.isfinite(sim_depth) & (sim_depth > 0)
     render_valid = np.isfinite(render_depth) & (render_depth > 0)
     out = np.full(sim_depth.shape, np.nan, dtype=np.float64)
@@ -70,26 +80,45 @@ class NavEnv(DirectRLEnv):
         if not resolved_gs_ply or not os.path.isfile(resolved_gs_ply):
             raise FileNotFoundError(
                 "A valid stitched GS PLY is required for depth alignment. "
-                "Please pass --gs-ply-path to a PLY matching the current scene USD."
+                "Prepare the scene with scripts/stitching/prepare_scene.py first."
             )
         super().__init__(cfg, render_mode, **kwargs)
         self.robot = self.scene["robot"]
         self._target_root_pose: torch.Tensor | None = None
         self._asset_registry = self._build_asset_registry()
-        cam_intrinsic = self.scene["head_camera"].data.intrinsic_matrices[0].detach().cpu().numpy().copy()
-        self.gs_manager = GSManager(resolved_gs_ply, cam_intrinsic, 640, 480, device=self.device)
+        cam_intrinsic = (
+            self.scene["head_camera"]
+            .data.intrinsic_matrices[0]
+            .detach()
+            .cpu()
+            .numpy()
+            .copy()
+        )
+        self.gs_manager = GSManager(
+            resolved_gs_ply,
+            cam_intrinsic,
+            640,
+            480,
+            device=self.device,
+            model_to_world=cfg.model_to_world,
+            alpha_threshold=cfg.opacity_threshold,
+        )
         self._grid = None
         self._grid_size = 0
         self._grid_origin = 0
         self._grid_resolution = float(getattr(cfg, "grid_resolution_m", 0.05))
         if bool(getattr(cfg, "use_grid_obstacle", True)):
             self._prepare_grid_collision_map()
+            if not self._is_valid_world_xy(*cfg.robot.init_state.pos[:2]):
+                raise ValueError("The robot spawn must lie in navigable space.")
 
     def _build_asset_registry(self) -> dict[str, dict[str, object]]:
         reg: dict[str, dict[str, object]] = {
-            "xlerobot": {"mode": "robot", "prim_path": "/World/envs/env_0/xlerobot", "xform_tag": "robot_root"},
-            "microwave": {"mode": "spawn_asset", "prim_path": "/World/envs/env_0/microwave", "xform_tag": "manual_spawned_asset"},
-            "oven": {"mode": "spawn_asset", "prim_path": "/World/envs/env_0/oven", "xform_tag": "manual_spawned_asset"},
+            "xlerobot": {
+                "mode": "robot",
+                "prim_path": "/World/envs/env_0/xlerobot",
+                "xform_tag": "robot_root",
+            },
         }
         for k, v in self._marker_objects.items():
             reg[k] = {
@@ -105,22 +134,21 @@ class NavEnv(DirectRLEnv):
 
     def _prepare_grid_collision_map(self) -> None:
         grid_map_path = str(getattr(self.cfg, "grid_map_path", self.cfg.grid_map_path))
-        grid_meta_path = str(getattr(self.cfg, "grid_meta_path", self.cfg.grid_meta_path))
+        grid_meta_path = str(
+            getattr(self.cfg, "grid_meta_path", self.cfg.grid_meta_path)
+        )
+
+        from WorldComposer.stitching.utils.navigation import model_digest
 
         if not (os.path.isfile(grid_map_path) and os.path.isfile(grid_meta_path)):
-            self.gs_manager.generate_grid_map(
-                grid_image_path=grid_map_path,
-                grid_meta_path=grid_meta_path,
-                z_range=(
-                    float(getattr(self.cfg, "grid_z_min_m", 0.1)),
-                    float(getattr(self.cfg, "grid_z_max_m", 0.8)),
-                ),
-                resolution=float(getattr(self.cfg, "grid_resolution_m", 0.05)),
-                margin_ratio=float(getattr(self.cfg, "grid_margin_ratio", 1.1)),
+            raise FileNotFoundError(
+                "Run prepare_scene.py to generate the navigation map."
             )
-            print(f"[INFO] Generated grid map: {grid_map_path}")
-        else:
-            print(f"[INFO] Using existing grid map: {grid_map_path}")
+        meta = json.loads(Path(grid_meta_path).read_text())
+        if meta.get("model_sha256") != model_digest(self.gs_manager.ply_path):
+            raise ValueError("The navigation map does not match the Gaussian model.")
+        if not np.allclose(meta["model_to_world"], self.cfg.model_to_world):
+            raise ValueError("The navigation map uses a different coordinate system.")
 
         self._load_grid_map(grid_map_path, grid_meta_path)
 
@@ -128,8 +156,8 @@ class NavEnv(DirectRLEnv):
         if not os.path.isfile(grid_map_path):
             return
         grid = cv2.imread(grid_map_path, cv2.IMREAD_GRAYSCALE)
-        if grid is None:
-            return
+        if grid is None or grid.ndim != 2 or grid.shape[0] != grid.shape[1]:
+            raise ValueError("The navigation map must be a square grayscale image.")
 
         self._grid = grid
         self._grid_size = int(grid.shape[0])
@@ -148,7 +176,9 @@ class NavEnv(DirectRLEnv):
         if self._grid is None:
             return (0, 0)
         col = int(round(x / self._grid_resolution)) + self._grid_origin
-        row = self._grid_size - int(round(y / self._grid_resolution)) - self._grid_origin
+        row = (
+            self._grid_size - int(round(y / self._grid_resolution)) - self._grid_origin
+        )
         return row, col
 
     def _is_valid_world_xy(self, x: float, y: float) -> bool:
@@ -161,7 +191,9 @@ class NavEnv(DirectRLEnv):
 
     def _setup_scene(self) -> None:
         super()._setup_scene()
-        ns = "/World/envs/env_0" if self.scene.num_envs == 1 else self.scene.env_regex_ns
+        ns = (
+            "/World/envs/env_0" if self.scene.num_envs == 1 else self.scene.env_regex_ns
+        )
         stage = self.scene.stage
         for name, pos in self._marker_objects.items():
             marker_path = f"{ns}/markers/{name}"
@@ -170,7 +202,9 @@ class NavEnv(DirectRLEnv):
             if translate_ops:
                 translate_ops[0].Set((float(pos[0]), float(pos[1]), float(pos[2])))
             else:
-                marker_xform.AddTranslateOp().Set((float(pos[0]), float(pos[1]), float(pos[2])))
+                marker_xform.AddTranslateOp().Set(
+                    (float(pos[0]), float(pos[1]), float(pos[2]))
+                )
         camera_parent_candidates = [
             f"{ns}/xlerobot/base_link",
             f"{ns}/xlerobot/xlerobot/root",
@@ -189,13 +223,23 @@ class NavEnv(DirectRLEnv):
         if not prim.IsValid():
             import isaaclab.sim as sim_utils
 
-            R_cam = np.array([[0.0, 0.0, -1.0], [-1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=np.float64)
+            R_cam = np.array(
+                [[0.0, 0.0, -1.0], [-1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=np.float64
+            )
             q_xyzw = ScipyRot.from_matrix(R_cam).as_quat()
-            quat_wxyz = (float(q_xyzw[3]), float(q_xyzw[0]), float(q_xyzw[1]), float(q_xyzw[2]))
+            quat_wxyz = (
+                float(q_xyzw[3]),
+                float(q_xyzw[0]),
+                float(q_xyzw[1]),
+                float(q_xyzw[2]),
+            )
             sim_utils.spawn_camera(
                 camera_prim_path,
                 sim_utils.PinholeCameraCfg(
-                    focal_length=8.7362, horizontal_aperture=20.955, vertical_aperture=20.955, clipping_range=(0.01, 10.0)
+                    focal_length=8.7362,
+                    horizontal_aperture=20.955,
+                    vertical_aperture=20.955,
+                    clipping_range=(0.01, 10.0),
                 ),
                 translation=(0.0, 0.0, self.cam_height),
                 orientation=quat_wxyz,
@@ -205,7 +249,9 @@ class NavEnv(DirectRLEnv):
         if not viewport_prim.IsValid():
             import isaaclab.sim as sim_utils
 
-            viewport_rot = ScipyRot.from_euler("xyz", [55.0, 0.0, -90.0], degrees=True).as_quat()
+            viewport_rot = ScipyRot.from_euler(
+                "xyz", [55.0, 0.0, -90.0], degrees=True
+            ).as_quat()
             viewport_quat_wxyz = (
                 float(viewport_rot[3]),
                 float(viewport_rot[0]),
@@ -241,11 +287,15 @@ class NavEnv(DirectRLEnv):
     def viewport_camera_prim_path(self) -> str:
         return self._viewport_camera_prim_path
 
-    def get_object_position_by_name(self, target_name: str) -> tuple[float, float, float]:
+    def get_object_position_by_name(
+        self, target_name: str
+    ) -> tuple[float, float, float]:
         if target_name in self._marker_objects:
             p = self._marker_objects[target_name]
             return (float(p[0]), float(p[1]), float(p[2]))
-        ns = "/World/envs/env_0" if self.scene.num_envs == 1 else self.scene.env_regex_ns
+        ns = (
+            "/World/envs/env_0" if self.scene.num_envs == 1 else self.scene.env_regex_ns
+        )
         prim_path = f"{ns}/{target_name}"
         prim = self.scene.stage.GetPrimAtPath(prim_path)
         if not prim.IsValid():
@@ -272,13 +322,32 @@ class NavEnv(DirectRLEnv):
             if act == ACTION_MOVE_FORWARD:
                 new_x = float(pos[i, 0].item() + MOVE_FORWARD_DIST * np.cos(yaw))
                 new_y = float(pos[i, 1].item() + MOVE_FORWARD_DIST * np.sin(yaw))
-                if self._is_valid_world_xy(new_x, new_y):
+                start = pos[i, :2].cpu().numpy()
+                samples = max(
+                    2, int(np.ceil(MOVE_FORWARD_DIST / self._grid_resolution * 2)) + 1
+                )
+                if all(
+                    self._is_valid_world_xy(x, y)
+                    for x, y in np.linspace(start, [new_x, new_y], samples)
+                ):
                     pos[i, 0] = new_x
                     pos[i, 1] = new_y
             elif act == ACTION_TURN_LEFT:
-                quat[i] = quat_from_euler_xyz(r, p, torch.tensor([yaw + turn_rad], device=quat.device, dtype=quat.dtype)).squeeze(0)
+                quat[i] = quat_from_euler_xyz(
+                    r,
+                    p,
+                    torch.tensor(
+                        [yaw + turn_rad], device=quat.device, dtype=quat.dtype
+                    ),
+                ).squeeze(0)
             elif act == ACTION_TURN_RIGHT:
-                quat[i] = quat_from_euler_xyz(r, p, torch.tensor([yaw - turn_rad], device=quat.device, dtype=quat.dtype)).squeeze(0)
+                quat[i] = quat_from_euler_xyz(
+                    r,
+                    p,
+                    torch.tensor(
+                        [yaw - turn_rad], device=quat.device, dtype=quat.dtype
+                    ),
+                ).squeeze(0)
         self._target_root_pose = torch.cat([pos, quat], dim=-1)
 
     def _apply_action(self) -> None:
@@ -286,7 +355,9 @@ class NavEnv(DirectRLEnv):
             self.robot.write_root_pose_to_sim(self._target_root_pose)
         self.robot.write_data_to_sim()
 
-    def _get_observations(self) -> dict[str, tuple[float, float, float] | torch.Tensor | np.ndarray]:
+    def _get_observations(
+        self,
+    ) -> dict[str, tuple[float, float, float] | torch.Tensor | np.ndarray]:
         robot_pose = self.get_robot_pose()
         rz = float(self.robot.data.root_pos_w[0, 2].item())
         camera_pose_xyz_yaw = (
@@ -308,10 +379,14 @@ class NavEnv(DirectRLEnv):
         elif depth_src == "sim":
             depth = _depth_to_2d_numpy(sim_depth)
             depth = np.clip(depth, MIN_DEPTH_M, MAX_DEPTH_M)
-            depth = ((depth - MIN_DEPTH_M) / (MAX_DEPTH_M - MIN_DEPTH_M)).astype(np.float32)
+            depth = ((depth - MIN_DEPTH_M) / (MAX_DEPTH_M - MIN_DEPTH_M)).astype(
+                np.float32
+            )
         elif depth_src == "gs":
             depth = np.clip(render_depth, MIN_DEPTH_M, MAX_DEPTH_M)
-            depth = ((depth - MIN_DEPTH_M) / (MAX_DEPTH_M - MIN_DEPTH_M)).astype(np.float32)
+            depth = ((depth - MIN_DEPTH_M) / (MAX_DEPTH_M - MIN_DEPTH_M)).astype(
+                np.float32
+            )
         else:
             raise ValueError(f"Unknown obs_depth_source: {depth_src!r}")
 
@@ -341,7 +416,6 @@ class NavEnv(DirectRLEnv):
             torch.zeros(self.num_envs, dtype=torch.bool, device=self.device),
             torch.zeros(self.num_envs, dtype=torch.bool, device=self.device),
         )
-
 
     def _reset_idx(self, env_ids):
         super()._reset_idx(env_ids)

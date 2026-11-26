@@ -124,9 +124,9 @@ def run_panorama_matching_and_ground(
     inlier_idx_for_3d = []
     for i in inlier_idx:
         X = triangulate_point(bearings1[i], bearings2[i], R, t)
-        depth1 = -X[2]
+        depth1 = np.dot(X, bearings1[i])
         X_cam2 = R @ X + t
-        depth2 = -X_cam2[2]
+        depth2 = np.dot(X_cam2, bearings2[i])
         if depth1 > 0 and depth2 > 0:
             points_3d_list.append(X)
             inlier_idx_for_3d.append(i)

@@ -31,22 +31,17 @@ class NavEnvCfg(DirectRLEnvCfg):
     action_space = 4
     observation_space = 3
     use_grid_obstacle = True
-    obs_rgb_source: str = "sim"
-    obs_depth_source: str = "merged"
-    gs_ply_path: str = str(SCENE_DIR / "multi_room.ply")
+    obs_rgb_source: str = "gs"
+    obs_depth_source: str = "gs"
+    gs_ply_path: str = str(SCENE_DIR / "stitched/merged.ply")
+    model_to_world: tuple = ((1, 0, 0), (0, 0, -1), (0, 1, 0))
+    opacity_threshold: float = 0.1
     camera_relative_height_m: float = 1.4
-    grid_map_path: str = str(SCENE_DIR / "grid_map.png")
-    grid_meta_path: str = str(SCENE_DIR / "grid_meta.json")
+    grid_map_path: str = str(SCENE_DIR / "stitched/grid_map.png")
+    grid_meta_path: str = str(SCENE_DIR / "stitched/grid_meta.json")
     grid_resolution_m: float = 0.05
-    grid_z_min_m: float = 0.1
-    grid_z_max_m: float = 0.8
-    grid_margin_ratio: float = 1.1
 
-    marker_objects: dict[str, tuple[float, float, float]] = {
-        "refrigerator": (-11.71497574751114, -5.034363007897863, 0.7263209023375464),
-        "chair": (2.978491408869553, -5.985242144378995, 0.9763456365481269),
-        "toilet": (2.898488996678908, -1.2987390655525088, 0.3578256175643223),
-    }
+    marker_objects: dict[str, tuple[float, float, float]] = {}
 
     sim: SimulationCfg = SimulationCfg(
         dt=1 / 60.0,
@@ -60,56 +55,58 @@ class NavEnvCfg(DirectRLEnvCfg):
         spawn=sim_utils.DomeLightCfg(intensity=800.0, exposure=0.0),
     )
 
-    visual_scene = AssetBaseCfg(
-        prim_path="{ENV_REGEX_NS}/visual_scene",
-        spawn=sim_utils.UsdFileCfg(usd_path=str(SCENE_DIR / "default.usda")),
-    )
+    visual_scene = None
 
     robot = ArticulationCfg(
         prim_path="{ENV_REGEX_NS}/xlerobot",
         spawn=sim_utils.UsdFileCfg(
             usd_path=str(Path(ASSETS_ROOT) / "robots/xlerobot/xlerobot/xlerobot.usd"),
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(rigid_body_enabled=True, disable_gravity=True),
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                rigid_body_enabled=True, disable_gravity=True
+            ),
             mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
             collision_props=sim_utils.CollisionPropertiesCfg(collision_enabled=False),
         ),
         init_state=ArticulationCfg.InitialStateCfg(
-            pos=(-0.703, -1.717, 0.1),
-            rot=get_rotation(0.0, 0.0, 180.0),
+            pos=(0.0, 0.0, 0.1),
+            rot=get_rotation(0.0, 0.0, 0.0),
         ),
         actuators={
-            "base_drive": ImplicitActuatorCfg(joint_names_expr=[".*"], stiffness=0.0, damping=0.0),
+            "base_drive": ImplicitActuatorCfg(
+                joint_names_expr=[".*"], stiffness=0.0, damping=0.0
+            ),
         },
-    )
-
-    microwave = AssetBaseCfg(
-        prim_path="{ENV_REGEX_NS}/microwave",
-        spawn=sim_utils.UsdFileCfg(
-            usd_path=str(Path(ASSETS_ROOT) / "objects/microwave/Microwave081/Microwave081.usd"),
-            collision_props=sim_utils.CollisionPropertiesCfg(collision_enabled=False),
-        ),
-        init_state=AssetBaseCfg.InitialStateCfg(
-            pos=(-10.084, -7.997, 1.443),
-            rot=get_rotation(0.0, 0.0, 176.0),
-        ),
-    )
-
-    oven = AssetBaseCfg(
-        prim_path="{ENV_REGEX_NS}/oven",
-        spawn=sim_utils.UsdFileCfg(
-            usd_path=str(Path(ASSETS_ROOT) / "objects/oven/Oven037/Oven037.usd"),
-            collision_props=sim_utils.CollisionPropertiesCfg(collision_enabled=False),
-        ),
-        init_state=AssetBaseCfg.InitialStateCfg(
-            pos=(-11.961790905897422, -7.233579507261785, 1.5508209694653439),
-            rot=get_rotation(0.0, 0.0, 83.0),
-        ),
     )
 
     def __post_init__(self):
         self.scene.dome_light = self.dome_light
         self.scene.visual_scene = self.visual_scene
         self.scene.robot = self.robot
-        self.scene.microwave = self.microwave
-        self.scene.oven = self.oven
         super().__post_init__()
+
+    @classmethod
+    def from_scene(cls, scene_dir, device="cuda:0"):
+        from WorldComposer.stitching.utils.navigation import load_scene_config
+
+        data = load_scene_config(scene_dir)
+        cfg = cls()
+        cfg.sim.device = device
+        cfg.gs_ply_path = data["model"]
+        cfg.model_to_world = data["model_to_world"]
+        cfg.opacity_threshold = float(data.get("opacity_threshold", 0.1))
+        cfg.grid_map_path = data["grid_map"]
+        cfg.grid_meta_path = data["grid_meta"]
+        cfg.obs_rgb_source = data.get("rgb_source", "gs")
+        cfg.obs_depth_source = data.get("depth_source", "gs")
+        cfg.camera_relative_height_m = float(data.get("camera_height", 1.4))
+        cfg.robot.init_state.pos = tuple(data["robot_position"])
+        cfg.robot.init_state.rot = get_rotation(0.0, 0.0, float(data["robot_yaw"]))
+        cfg.marker_objects = data.get("markers", {})
+        if data.get("visual_scene"):
+            cfg.visual_scene = AssetBaseCfg(
+                prim_path="{ENV_REGEX_NS}/visual_scene",
+                spawn=sim_utils.UsdFileCfg(usd_path=data["visual_scene"]),
+            )
+        cfg.scene.visual_scene = cfg.visual_scene
+        cfg.scene.robot = cfg.robot
+        return cfg

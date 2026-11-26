@@ -19,14 +19,17 @@ parser = argparse.ArgumentParser(
     description="IsaacSim nav example with keyboard teleop."
 )
 AppLauncher.add_app_launcher_args(parser)
-parser.add_argument("--scene-dir", default="Assets/scenes/MultiroomScenes/MultiRoom01")
-parser.add_argument("--gs-ply-path", default=None)
-parser.add_argument("--steps", type=int, default=0)
-parser.add_argument("--camera-height-m", type=float, default=1.4)
 parser.add_argument(
-    "--visualize-obs", action=argparse.BooleanOptionalAction, default=False
+    "--scene-dir", default="Assets/scenes/MultiroomScenes/MultiRoom01/stitched"
+)
+parser.add_argument("--steps", type=int, default=0)
+parser.add_argument("--camera-height-m", type=float)
+parser.add_argument(
+    "--visualize-obs", action=argparse.BooleanOptionalAction, default=True
 )
 args_cli = parser.parse_args()
+if args_cli.headless:
+    args_cli.visualize_obs = False
 if hasattr(args_cli, "enable_cameras") and not args_cli.enable_cameras:
     args_cli.enable_cameras = True
 app_launcher = AppLauncher(args_cli)
@@ -100,24 +103,19 @@ def _init_obs_window() -> None:
         pass
 
 
-def _show_obs_window(frame: np.ndarray) -> None:
+def _show_obs_window(frame: np.ndarray) -> int:
     cv2.imshow(CV_WINDOW_NAME, frame)
     try:
         cv2.setWindowProperty(CV_WINDOW_NAME, cv2.WND_PROP_TOPMOST, 1)
     except Exception:
         pass
-    cv2.waitKey(1)
+    return cv2.waitKey(1) & 0xFF
 
 
 def main() -> None:
-    cfg = NavEnvCfg()
-    scene_dir = Path(args_cli.scene_dir).resolve()
-    cfg.sim.device = args_cli.device
-    cfg.gs_ply_path = str(Path(args_cli.gs_ply_path).resolve()) if args_cli.gs_ply_path else str(scene_dir / "multi_room.ply")
-    cfg.visual_scene.spawn.usd_path = str(scene_dir / "default.usda")
-    cfg.grid_map_path = str(scene_dir / "grid_map.png")
-    cfg.grid_meta_path = str(scene_dir / "grid_meta.json")
-    cfg.camera_relative_height_m = float(args_cli.camera_height_m)
+    cfg = NavEnvCfg.from_scene(args_cli.scene_dir, args_cli.device)
+    if args_cli.camera_height_m is not None:
+        cfg.camera_relative_height_m = args_cli.camera_height_m
 
     env = NavEnv(cfg)
     env.reset()
@@ -156,21 +154,33 @@ def main() -> None:
         input_iface = carb.input.acquire_input_interface()
 
         def _on_key(e, *args: Any) -> None:
-            if e.input in [KeyboardInput.Q, KeyboardInput.ESCAPE] and e.type == KeyboardEventType.KEY_PRESS:
+            if (
+                e.input in [KeyboardInput.Q, KeyboardInput.ESCAPE]
+                and e.type == KeyboardEventType.KEY_PRESS
+            ):
                 action_queue.put(quit_token)
                 return
             if e.input == KeyboardInput.W:
-                if e.type in [KeyboardEventType.KEY_PRESS, KeyboardEventType.KEY_REPEAT]:
+                if e.type in [
+                    KeyboardEventType.KEY_PRESS,
+                    KeyboardEventType.KEY_REPEAT,
+                ]:
                     action_queue.put(ACTION_MOVE_FORWARD)
                 elif e.type == KeyboardEventType.KEY_RELEASE:
                     action_queue.put(ACTION_STOP)
             elif e.input == KeyboardInput.A:
-                if e.type in [KeyboardEventType.KEY_PRESS, KeyboardEventType.KEY_REPEAT]:
+                if e.type in [
+                    KeyboardEventType.KEY_PRESS,
+                    KeyboardEventType.KEY_REPEAT,
+                ]:
                     action_queue.put(ACTION_TURN_LEFT)
                 elif e.type == KeyboardEventType.KEY_RELEASE:
                     action_queue.put(ACTION_STOP)
             elif e.input == KeyboardInput.D:
-                if e.type in [KeyboardEventType.KEY_PRESS, KeyboardEventType.KEY_REPEAT]:
+                if e.type in [
+                    KeyboardEventType.KEY_PRESS,
+                    KeyboardEventType.KEY_REPEAT,
+                ]:
                     action_queue.put(ACTION_TURN_RIGHT)
                 elif e.type == KeyboardEventType.KEY_RELEASE:
                     action_queue.put(ACTION_STOP)
@@ -184,7 +194,9 @@ def main() -> None:
     try:
         frame_id = 0
         viewport_bound = False
-        while simulation_app.is_running() and (args_cli.steps <= 0 or frame_id < args_cli.steps):
+        while simulation_app.is_running() and (
+            args_cli.steps <= 0 or frame_id < args_cli.steps
+        ):
             if not viewport_bound and frame_id < 60 and env.viewport_camera_prim_path:
                 viewport_bound = _set_viewport_to_robot_camera(
                     env.viewport_camera_prim_path, verbose=(frame_id == 0)
@@ -202,19 +214,29 @@ def main() -> None:
 
             if action == quit_token:
                 break
-            env.step(torch.tensor([current_action], device=env.device, dtype=torch.long))
+            obs, *_ = env.step(
+                torch.tensor([current_action], device=env.device, dtype=torch.long)
+            )
 
             if args_cli.visualize_obs:
-                obs = env._get_observations()
                 rgb = obs["rgb"]
                 depth = obs["depth"]
                 if isinstance(rgb, torch.Tensor):
                     rgb = rgb.squeeze(0).cpu().numpy()
                 if isinstance(depth, torch.Tensor):
                     depth = depth.squeeze().cpu().numpy()
-                _show_obs_window(
+                key = _show_obs_window(
                     _compose_rgb_depth(np.asarray(rgb), np.asarray(depth))
                 )
+                if key in (ord("q"), 27):
+                    break
+                if key in (ord("w"), ord("a"), ord("d"), ord("s")):
+                    current_action = {
+                        ord("w"): ACTION_MOVE_FORWARD,
+                        ord("a"): ACTION_TURN_LEFT,
+                        ord("d"): ACTION_TURN_RIGHT,
+                        ord("s"): ACTION_STOP,
+                    }[key]
 
             simulation_app.update()
     finally:

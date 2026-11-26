@@ -11,6 +11,7 @@ def load_pcd_from_ply(
     scale_threshold: float = 0.05,
     voxel_size: float = 0.05,
     enable_denoising: bool = True,
+    structural: bool = False,
 ) -> o3d.geometry.PointCloud:
     ply = PlyData.read(ply_path)
     v = ply["vertex"].data
@@ -52,6 +53,17 @@ def load_pcd_from_ply(
         opacity_raw = np.asarray(v["opacity"], dtype=np.float32)
         opacity = 1.0 / (1.0 + np.exp(-opacity_raw))
         valid &= opacity > float(opacity_threshold)
+    if structural:
+        from .gaussian import _quality_mask, _surface_cloud
+
+        valid &= _quality_mask(v)
+        surface = _surface_cloud(v, valid, voxel_size)
+        valid_surface = surface["supported"] & surface["reliable"]
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(surface["points"][valid_surface])
+        pcd.colors = o3d.utility.Vector3dVector(surface["colors"][valid_surface])
+        pcd.normals = o3d.utility.Vector3dVector(surface["normal"][valid_surface])
+        return pcd
     if {"scale_0", "scale_1", "scale_2"}.issubset(names):
         scales = np.stack(
             [
